@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Woof Wings - Карта участников клуба</title>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <style>
+        :root {
+            --orange: #E8920A;
+            --orange-dark: #C97808;
+            --orange-light: #FFF3DC;
+            --orange-glow: rgba(232, 146, 10, 0.3);
+            --cream: #FFFAF2;
+            --white: #FFFFFF;
+            --dark: #1A1209;
+            --text: #3D2E0E;
+            --text-muted: #7A6540;
+            --radius: 24px;
+            --radius-pill: 50px;
+            --shadow: 0 8px 40px rgba(232, 146, 10, 0.18);
+            --shadow-hover: 0 12px 40px rgba(232, 146, 10, 0.25);
+            --font-display: 'Nunito', sans-serif;
+            --font-body: 'Nunito Sans', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--cream);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* ЗАГОЛОВОК */
+        .header {
+            text-align: center;
+            padding: 60px 20px 40px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: var(--orange-light);
+            color: var(--orange-dark);
+            padding: 8px 20px;
+            border-radius: var(--radius-pill);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            font-family: var(--font-display);
+        }
+
+        .title {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            line-height: 1.2;
+            color: var(--dark);
+            margin-bottom: 16px;
+        }
+
+        .title .highlight {
+            color: var(--orange);
+        }
+
+        .subtitle {
+            font-size: 18px;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* КАРТА И КРУЖОЧКИ */
+        .map-section {
+            background: var(--white);
+            border-radius: var(--radius);
+            border: 2px solid var(--orange-light);
+            padding: 30px;
+            margin-bottom: 60px;
+            box-shadow: var(--shadow);
+        }
+
+        .map-title {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--dark);
+            margin-bottom: 24px;
+        }
+
+        #map {
+            border-radius: var(--radius);
+            height: 600px;
+            margin-bottom: 30px;
+            border: 2px solid var(--orange-light);
+        }
+
+        /* КРУЖОЧКИ С ФОТКАМИ НА КАРТЕ */
+        .members-on-map {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 20px;
+        }
+
+        .member-circle {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid var(--orange);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px var(--orange-glow);
+        }
+
+        .member-circle:hover {
+            transform: scale(1.1);
+            box-shadow: var(--shadow-hover);
+            border-color: var(--orange-dark);
+        }
+
+        .member-circle img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .member-circle-name {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(232, 146, 10, 0.95);
+            color: white;
+            padding: 4px 8px;
+            font-size: 11px;
+            font-weight: 700;
+            text-align: center;
+            font-family: var(--font-display);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* СПИСОК УЧАСТНИКОВ */
+        .list-section {
+            padding: 40px 0;
+        }
+
+        .list-title {
+            font-family: var(--font-display);
+            font-size: 28px;
+            font-weight: 900;
+            color: var(--dark);
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* ФИЛЬТРЫ И ПОИСК */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 250px 150px;
+            gap: 16px;
+            margin-bottom: 30px;
+            align-items: end;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .search-input, .filter-select {
+            padding: 12px 16px;
+            border-radius: var(--radius);
+            border: 2px solid var(--orange-light);
+            font-size: 14px;
+            font-family: var(--font-body);
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .search-input:focus, .filter-select:focus {
+            border-color: var(--orange);
+            box-shadow: 0 0 0 3px rgba(232, 146, 10, 0.1);
+        }
+
+        /* КАРТОЧКИ УЧАСТНИКОВ */
+        .members-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .member-card {
+            background: var(--white);
+            border: 2px solid var(--orange-light);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .member-card:hover {
+            border-color: var(--orange);
+            transform: translateY(-6px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .member-card-photo {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: var(--orange-light);
+        }
+
+        .member-card-content {
+            padding: 20px;
+        }
+
+        .member-card-name {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--orange);
+            margin-bottom: 12px;
+        }
+
+        .member-info {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .info-label {
+            font-weight: 700;
+            color: var(--text-muted);
+            min-width: 70px;
+        }
+
+        .info-value {
+            color: var(--text);
+            flex: 1;
+        }
+
+        /* СТАТИСТИКА */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: var(--white);
+            border: 2px solid var(--orange-light);
+            border-radius: var(--radius);
+            padding: 24px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-family: var(--font-display);
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--orange);
+        }
+
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 8px;
+            font-weight: 600;
+        }
+
+        /* РЕЗУЛЬТАТЫ */
+        .results-info {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .results-info strong {
+            color: var(--orange);
+        }
+
+        /* ПУСТОЙ РЕЗУЛЬТАТ */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .empty-title {
+            font-family: var(--font-display);
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 12px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* ФУТЕР */
+        .footer {
+            text-align: center;
+            padding: 40px 20px;
+            border-top: 2px solid var(--orange-light);
+            margin-top: 60px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        @media (max-width: 768px) {
+            #map {
+                height: 400px;
+            }
+
+            .members-on-map {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            }
+
+            .member-card {
+                grid-column: span 1;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ЗАГОЛОВОК -->
+        <div class="header">
+            <span class="tag">🐾 Наше сообщество</span>
+            <h1 class="title">Участники клуба <span class="highlight">Woof Wings</span></h1>
+            <p class="subtitle">Интерактивная карта со всеми членами нашей дружной семьи</p>
+        </div>
+
+        <!-- СТАТИСТИКА -->
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="statDogs">26</div>
+                <div class="stat-label">Собак в клубе</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="statCountries">13</div>
+                <div class="stat-label">Стран и городов</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="statBreeds">23</div>
+                <div class="stat-label">Разных пород</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- КАРТА С КРУЖОЧКАМИ -->
+    <div class="map-section">
+        <div class="container">
+            <h2 class="map-title">📍 Где живут наши собаки?</h2>
+            <div id="map"></div>
+            
+            <h3 style="margin-top: 30px; margin-bottom: 20px; font-family: 'Nunito', sans-serif; font-size: 18px; font-weight: 800; color: #1A1209;">Все участники на карте:</h3>
+            <div class="members-on-map" id="membersOnMap"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- СПИСОК -->
+        <div class="list-section">
+            <h2 class="list-title">📋 Полный список участников</h2>
+
+            <!-- ФИЛЬТРЫ -->
+            <div class="controls">
+                <input type="text" id="searchInput" class="search-input" placeholder="🔍 Поиск по имени, хозяину, породе...">
+                <select id="locationFilter" class="filter-select">
+                    <option value="">📍 Все города</option>
+                </select>
+            </div>
+
+            <!-- РЕЗУЛЬТАТЫ -->
+            <div class="results-info">
+                Найдено: <strong id="resultCount">26</strong> собак
+            </div>
+
+            <!-- КАРТОЧКИ -->
+            <div class="members-grid" id="membersList"></div>
+
+            <!-- ПУСТОЙ РЕЗУЛЬТАТ -->
+            <div class="empty-state hidden" id="emptyState">
+                <div class="empty-icon">🐕</div>
+                <h3 class="empty-title">Ничего не найдено</h3>
+                <p style="color: #7A6540;">Попробуйте изменить поисковый запрос или фильтры</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="footer">
+            <p>🐾 <strong>Woof Wings Club</strong> — сообщество любителей собак со всего мира 🐾</p>
+            <p style="margin-top: 12px; font-size: 12px;">Последнее обновление: <span id="updateDate"></span></p>
+        </div>
+    </div>
+
+    <script>
+        // ДАННЫЕ УЧАСТНИКОВ С ФОТОГРАФИЯМИ
+        // ✅ 100% правильное соответствие фотографий по маппингу пользователя!
+        const membersData = [
+            { id: 1, dogName: "Марло и Сайкс", breed: "Такса", owner: "Настя", location: "Лион, Франция", lat: 45.7640, lng: 4.8357, photo: "photos/photo_01.jpg" },
+            { id: 2, dogName: "Барни", breed: "Кламбер-спаниель", owner: "Ирина", location: "Варшава, Польша", lat: 52.2297, lng: 21.0122, photo: "photos/photo_02.jpg" },
+            { id: 3, dogName: "Мухтар", breed: "Не указана", owner: "Аня", location: "Сочи, Россия", lat: 43.6028, lng: 39.7314, photo: "photos/photo_03.jpg" },
+            { id: 4, dogName: "Докинз", breed: "Бигль", owner: "Аня", location: "Санкт-Петербург, Россия", lat: 59.9311, lng: 30.3609, photo: "photos/photo_04.jpg" },
+            { id: 5, dogName: "Джамбо", breed: "Не указана", owner: "Не указано", location: "Не указана", lat: 0, lng: 0, photo: "photos/photo_05.jpg" },
+            { id: 6, dogName: "Арахис", breed: "Корги", owner: "Камила", location: "Иркутск, Россия", lat: 52.2829, lng: 104.2675, photo: "photos/photo_06.jpg" },
+            { id: 7, dogName: "Юта", breed: "Среднеазиатская овчарка (алабай)", owner: "Катя", location: "Челябинск, Россия", lat: 55.1644, lng: 61.4368, photo: "photos/photo_07.jpg" },
+            { id: 8, dogName: "Тук", breed: "Австралийская овчарка", owner: "Катя", location: "Челябинск, Россия", lat: 55.1644, lng: 61.4368, photo: "photos/photo_08.jpg" },
+            { id: 9, dogName: "Бруно", breed: "Кинг-чарльз-спаниель", owner: "Алия и Влад", location: "Москва, Россия", lat: 55.7558, lng: 37.6173, photo: "photos/photo_09.jpg" },
+            { id: 10, dogName: "Патрик", breed: "Корги", owner: "Мария", location: "Москва, Россия", lat: 55.7558, lng: 37.6173, photo: "photos/photo_10.jpg" },
+            { id: 11, dogName: "Эшли", breed: "Не указана", owner: "Соня Вайнштейн", location: "Афины, Греция", lat: 37.9838, lng: 23.7275, photo: "photos/photo_11.jpg" },
+            { id: 12, dogName: "Саманта", breed: "Лабрадор", owner: "Валентина", location: "Оренбург, Россия", lat: 51.5644, lng: 55.0982, photo: "photos/photo_12.jpg" },
+            { id: 13, dogName: "Мия", breed: "Мальтипу", owner: "Дарья", location: "Новосибирск, Россия", lat: 55.0084, lng: 82.9357, photo: "photos/photo_13.jpg" },
+            { id: 14, dogName: "Мия", breed: "Золотой ретривер", owner: "Дарья", location: "Краснодар, Россия", lat: 45.0355, lng: 38.9754, photo: "photos/photo_14.jpg" },
+            { id: 15, dogName: "Чиби", breed: "Сиба-ину", owner: "Залина", location: "Брно, Чехия", lat: 49.1950, lng: 16.6068, photo: "photos/photo_15.jpg" },
+            { id: 16, dogName: "Кропп", breed: "Басенджи", owner: "Лиза", location: "Москва, Россия", lat: 55.7558, lng: 37.6173, photo: "photos/photo_16.jpg" },
+            { id: 17, dogName: "Кай", breed: "Французский бульдог", owner: "Настя", location: "Таганрог, Россия", lat: 47.2362, lng: 38.8969, photo: "photos/photo_17.jpg" },
+            { id: 18, dogName: "Дрейдел", breed: "Корги", owner: "Лена", location: "Тель-Авив, Израиль", lat: 32.0853, lng: 34.7818, photo: "photos/photo_18.jpg" },
+            { id: 19, dogName: "Жан-Пери", breed: "Цвергпинчер", owner: "Лена", location: "Псковская область, Россия", lat: 57.8139, lng: 28.3794, photo: "photos/photo_19.jpg" },
+            { id: 20, dogName: "Вендсдей", breed: "Бордер колли", owner: "Юля", location: "Ашкелон, Израиль", lat: 31.6801, lng: 34.6271, photo: "photos/photo_20.jpg" },
+            { id: 21, dogName: "Жора", breed: "Немецкий шпиц", owner: "Ирина", location: "Россия", lat: 55.7558, lng: 37.6173, photo: "photos/photo_21.jpg" },
+            { id: 22, dogName: "Starsky и Hutch", breed: "Лабрадор", owner: "Анна", location: "Альберта, Канада", lat: 53.1333, lng: -113.6362, photo: "photos/photo_22.jpg" },
+            { id: 23, dogName: "Рэнди", breed: "Бордер колли", owner: "Николь", location: "Екатеринбург, Россия", lat: 56.8389, lng: 60.6057, photo: "photos/photo_23.jpg" },
+            { id: 24, dogName: "Ассоль и Горда", breed: "Веймаранеры", owner: "Виктория", location: "Апшеронск, Россия", lat: 55.3461, lng: 43.6050, photo: "photos/photo_24.jpg" },
+            { id: 25, dogName: "Персей", breed: "Йоркширский терьер", owner: "Светлана", location: "Москва, Россия", lat: 55.7558, lng: 37.6173, photo: "photos/photo_25.jpg" },
+            { id: 26, dogName: "Паскаль", breed: "Французский бульдог", owner: "Марьям", location: "Пхукет, Таиланд", lat: 7.8804, lng: 98.3923, photo: "photos/photo_26.jpg" }
+        ];
+
+        let filteredMembers = [...membersData];
+        let map;
+        let markers = {};
+
+        // ИНИЦИАЛИЗАЦИЯ
+        function init() {
+            updateStats();
+            populateLocationFilter();
+            initMap();
+            renderMembers();
+            setupEventListeners();
+            updateDate();
+        }
+
+        function updateStats() {
+            const uniqueLocations = new Set(membersData.map(m => m.location)).size;
+            const uniqueBreeds = new Set(membersData.map(m => m.breed)).size;
+            document.getElementById('statDogs').textContent = membersData.length;
+            document.getElementById('statCountries').textContent = uniqueLocations;
+            document.getElementById('statBreeds').textContent = uniqueBreeds;
+        }
+
+        function populateLocationFilter() {
+            const locations = [...new Set(membersData.map(m => m.location))].sort();
+            const select = document.getElementById('locationFilter');
+            locations.forEach(location => {
+                const option = document.createElement('option');
+                option.value = location;
+                option.textContent = `📍 ${location}`;
+                select.appendChild(option);
+            });
+        }
+
+        function filterMembers() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const location = document.getElementById('locationFilter').value;
+
+            filteredMembers = membersData.filter(member => {
+                const matchesSearch = 
+                    member.dogName.toLowerCase().includes(search) ||
+                    member.owner.toLowerCase().includes(search) ||
+                    member.breed.toLowerCase().includes(search);
+                
+                const matchesLocation = location === '' || member.location === location;
+                return matchesSearch && matchesLocation;
+            });
+
+            renderMembers();
+            updateMapMarkers();
+            updateResultCount();
+        }
+
+        function updateResultCount() {
+            document.getElementById('resultCount').textContent = filteredMembers.length;
+            const listContainer = document.getElementById('membersList');
+            const emptyState = document.getElementById('emptyState');
+
+            if (filteredMembers.length === 0) {
+                listContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+            }
+        }
+
+        function renderMembers() {
+            const container = document.getElementById('membersList');
+            container.innerHTML = filteredMembers.map(member => `
+                <div class="member-card">
+                    <img src="${member.photo}" alt="${member.dogName}" class="member-card-photo" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22200%22%3E%3Crect fill=%22%23FFF3DC%22 width=%22300%22 height=%22200%22/%3E%3Ctext x=%2250%25%22 y=%2250%25%22 font-size=%2224%22 fill=%22%23E8920A%22 text-anchor=%22middle%22 dy=%22.3em%22%3E🐕%3C/text%3E%3C/svg%3E'">
+                    <div class="member-card-content">
+                        <div class="member-card-name">🐕 ${member.dogName}</div>
+                        <div class="member-info">
+                            <div class="info-row">
+                                <span class="info-label">Порода:</span>
+                                <span class="info-value">${member.breed}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Хозяин:</span>
+                                <span class="info-value">${member.owner}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">📍</span>
+                                <span class="info-value">${member.location}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Рендерим кружочки на карте
+            const mapContainer = document.getElementById('membersOnMap');
+            mapContainer.innerHTML = membersData.map(member => `
+                <div class="member-circle" title="${member.dogName}">
+                    <img src="${member.photo}" alt="${member.dogName}" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E%3Crect fill=%22%23FFF3DC%22 width=%22120%22 height=%22120%22/%3E%3Ctext x=%2250%25%22 y=%2240%25%22 font-size=%2240%22 text-anchor=%22middle%22%3E🐕%3C/text%3E%3C/svg%3E'">
+                    <div class="member-circle-name">${member.dogName}</div>
+                </div>
+            `).join('');
+        }
+
+        function initMap() {
+            map = L.map('map').setView([20, 0], 2);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 19
+            }).addTo(map);
+            updateMapMarkers();
+        }
+
+        function updateMapMarkers() {
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
+
+            const locationGroups = {};
+            membersData.forEach(member => {
+                const key = `${member.lat},${member.lng}`;
+                if (!locationGroups[key]) {
+                    locationGroups[key] = [];
+                }
+                locationGroups[key].push(member);
+            });
+
+            Object.entries(locationGroups).forEach(([key, members]) => {
+                const [lat, lng] = key.split(',').map(Number);
+                const marker = L.circleMarker([lat, lng], {
+                    radius: Math.max(8, Math.min(25, members.length * 3)),
+                    fillColor: '#E8920A',
+                    color: '#C97808',
+                    weight: 2,
+                    opacity: 0.8,
+                    fillOpacity: 0.7
+                }).addTo(map);
+
+                const popupContent = `
+                    <strong>${members[0].location}</strong><br>
+                    🐕 ${members.length} собак:<br>
+                    ${members.map(m => `• ${m.dogName}`).join('<br>')}
+                `;
+                marker.bindPopup(popupContent);
+                markers[key] = marker;
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('searchInput').addEventListener('input', filterMembers);
+            document.getElementById('locationFilter').addEventListener('change', filterMembers);
+        }
+
+        function updateDate() {
+            const date = new Date();
+            const options = { day: 'numeric', month: 'long', year: 'numeric' };
+            document.getElementById('updateDate').textContent = date.toLocaleDateString('ru-RU', options);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
